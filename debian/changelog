@@ -1,3 +1,45 @@
+libavif (1.2.1-1.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Fix upstream bug reference for patch for CVE-2025-48175
+  * Add another integer overflow check to makeRoom
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Sun, 25 May 2025 07:27:30 +0200
+
+libavif (1.2.1-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Add integer overflow checks to makeRoom (CVE-2025-48174) (Closes:
+    #1105885)
+  * Add integer overflow check to makeRoom (CVE-2025-48174) (Closes: #1105885)
+  * Fix format errors (CVE-2025-48174) (Closes: #1105885)
+  * Declare *RowBytes as size_t in avifImageRGBToYUV() (CVE-2025-48175)
+    (Closes: #1105883)
+
+ -- Salvatore Bonaccorso <carnil@debian.org>  Sat, 17 May 2025 16:03:36 +0200
+
+libavif (1.2.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian/*.1: Update prebuilt man pages.
+
+ -- Boyuan Yang <byang@debian.org>  Thu, 20 Mar 2025 14:03:55 -0400
+
+libavif (1.2.0-1) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Boyuan Yang <byang@debian.org>  Mon, 03 Mar 2025 17:04:30 -0500
+
+libavif (1.2.0-1~exp1) experimental; urgency=medium
+
+  * New upstream release.
+  * debian/watch: Introduce libargparse copy as component.
+  * debian/clean, debian/rules: Correctly place libargparse copy.
+  * debian/copyright: Updated.
+
+ -- Boyuan Yang <byang@debian.org>  Mon, 03 Mar 2025 11:58:44 -0500
+
 libavif (1.1.1-1) unstable; urgency=medium
 
   * Upload to unstable.

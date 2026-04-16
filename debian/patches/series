@@ -1,0 +1,5 @@
+Add-integer-overflow-checks-to-makeRoom.patch
+Add-integer-overflow-check-to-makeRoom.patch
+Fix-format-errors.patch
+Declare-RowBytes-as-size_t-in-avifImageRGBToYUV.patch
+Add-another-integer-overflow-check-to-makeRoom.patch

@@ -51,6 +51,8 @@ endif
 execute_before_dh_auto_configure:
 	# Strip embedded libyuv source code, we prefer library from OS
 	rm -rfv third_party/libyuv/
+	# Copy the libargparse component to the extracted location
+	cp -rv libargparse ext/libargparse/
 
 # rpath: check https://bugs.debian.org/1003371
 #        drop when debhelper-compat >= 14
