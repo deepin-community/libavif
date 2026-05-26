@@ -1,8 +1,9 @@
-libavif (1.1.1-1.1) unstable; urgency=medium
+libavif (1.1.1-1.2) unstable; urgency=medium
 
   * Fix CVE-2025-48174: Add integer overflow check to makeRoom
+  * Fix CVE-2025-48175: Declare *RowBytes as size_t in avifImageRGBToYUV
 
- -- deepin-ci-robot <packages@deepin.org>  Tue, 26 May 2026 23:59:39 +0800
+ -- deepin-ci-robot <packages@deepin.org>  Tue, 26 May 2026 23:59:54 +0800
 
 
 libavif (1.1.1-1) unstable; urgency=medium
