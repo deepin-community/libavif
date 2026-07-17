@@ -1,0 +1,29 @@
+From: DanisJiang <43723722+DanisJiang@users.noreply.github.com>
+Date: Fri, 18 Apr 2025 17:31:53 +0800
+Subject: Add integer overflow checks to makeRoom.
+Origin: https://github.com/AOMediaCodec/libavif/commit/e5fdefe7d1776e6c4cf1703c163a8c0535599029
+Bug: https://github.com/AOMediaCodec/libavif/pull/2768
+Bug-Debian: https://bugs.debian.org/1105885
+Bug-Debian-Security: https://security-tracker.debian.org/tracker/CVE-2025-48174
+
+---
+ src/stream.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/stream.c b/src/stream.c
+index 770c8ba04280..41252f89d9b2 100644
+--- a/src/stream.c
++++ b/src/stream.c
+@@ -335,6 +335,9 @@ avifBool avifROStreamReadAndEnforceVersion(avifROStream * stream, uint8_t enforc
+ static avifResult makeRoom(avifRWStream * stream, size_t size)
+ {
+     size_t neededSize = stream->offset + size;
++    if (neededSize < stream->offset) {
++        return AVIF_RESULT_INVALID_ARGUMENT;
++    }
+     size_t newSize = stream->raw->size;
+     while (newSize < neededSize) {
+         newSize += AVIF_STREAM_BUFFER_INCREMENT;
+-- 
+2.49.0
+

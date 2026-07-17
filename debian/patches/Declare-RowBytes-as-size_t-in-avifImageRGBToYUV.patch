@@ -6,10 +6,10 @@ Bug: https://github.com/AOMediaCodec/libavif/pull/2769
 Bug-Debian: https://bugs.debian.org/1105883
 Bug-Debian-Security: https://security-tracker.debian.org/tracker/CVE-2025-48175
 
-Declare yuvRowBytes, yRowBytes, uRowBytes, and vRowBytes as size_t
-in avifImageRGBToYUV(). This causes multiplications with these variables
-to be performed in size_t (which may be 64 bits) instead of uint32_t.
-For very large image width and height, these multiplications may overflow
+Declare rgbRowBytes, yRowBytes, uRowBytes, and vRowBytes as size_t in
+avifImageRGBToYUV(). This causes multiplications with these variables to
+be performed in size_t (which may be 64 bits) instead of uint32_t. For
+very large image width and height, these multiplications may overflow
 uint32_t.
 
 Acknowledgements: DanisJiang
@@ -18,23 +18,24 @@ https://github.com/AOMediaCodec/libavif/security/advisories/GHSA-762c-2538-h844
  src/reformat.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/src/reformat.c b/src/reformat.c
-index c5e94b56..abc08903 100644
 --- a/src/reformat.c
 +++ b/src/reformat.c
-@@ -275,1 +275,1 @@ avifResult avifImageRGBToYUV(avifImage * image, const avifRGBImage * rgb)
--        uint32_t * yuvRowBytes = image->yuvRowBytes;
-+        size_t * yuvRowBytes = (size_t *)image->yuvRowBytes;
-diff --git a/src/reformat.c b/src/reformat.c
-index c5e94b56..abc08903 100644
---- a/src/reformat.c
-+++ b/src/reformat.c
-@@ -595,3 +595,3 @@ avifResult avifImageYUVToRGB(const avifImage * image, avifRGBImage * rgb)
--    const uint32_t yRowBytes = image->yuvRowBytes[AVIF_CHAN_Y];
--    const uint32_t uRowBytes = image->yuvRowBytes[AVIF_CHAN_U];
--    const uint32_t vRowBytes = image->yuvRowBytes[AVIF_CHAN_V];
-+    const size_t yRowBytes = image->yuvRowBytes[AVIF_CHAN_Y];
-+    const size_t uRowBytes = image->yuvRowBytes[AVIF_CHAN_U];
-+    const size_t vRowBytes = image->yuvRowBytes[AVIF_CHAN_V];
--- 
-2.49.0
+@@ -259,14 +259,14 @@ avifResult avifImageRGBToYUV(avifImage *
+         const uint32_t offsetBytesG = state.rgb.offsetBytesG;
+         const uint32_t offsetBytesB = state.rgb.offsetBytesB;
+         const uint32_t offsetBytesA = state.rgb.offsetBytesA;
+-        const uint32_t rgbRowBytes = rgb->rowBytes;
++        const size_t rgbRowBytes = rgb->rowBytes;
+         const float rgbMaxChannelF = state.rgb.maxChannelF;
+         uint8_t * yPlane = image->yuvPlanes[AVIF_CHAN_Y];
+         uint8_t * uPlane = image->yuvPlanes[AVIF_CHAN_U];
+         uint8_t * vPlane = image->yuvPlanes[AVIF_CHAN_V];
+-        const uint32_t yRowBytes = image->yuvRowBytes[AVIF_CHAN_Y];
+-        const uint32_t uRowBytes = image->yuvRowBytes[AVIF_CHAN_U];
+-        const uint32_t vRowBytes = image->yuvRowBytes[AVIF_CHAN_V];
++        const size_t yRowBytes = image->yuvRowBytes[AVIF_CHAN_Y];
++        const size_t uRowBytes = image->yuvRowBytes[AVIF_CHAN_U];
++        const size_t vRowBytes = image->yuvRowBytes[AVIF_CHAN_V];
+         for (uint32_t outerJ = 0; outerJ < image->height; outerJ += 2) {
+             for (uint32_t outerI = 0; outerI < image->width; outerI += 2) {
+                 int blockW = 2, blockH = 2;

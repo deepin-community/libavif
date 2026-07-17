@@ -1,0 +1,71 @@
+From: Wan-Teh Chang <wtc@google.com>
+Date: Sun, 27 Apr 2025 14:34:35 -0700
+Subject: Add another integer overflow check to makeRoom
+Origin: https://github.com/AOMediaCodec/libavif/commit/32eae7c5c1e72d9999cb31d02e333b6a76029bad
+Bug: https://github.com/AOMediaCodec/libavif/pull/2778
+
+Replace the while loop with a formula in makeRoom.
+
+Test the integer overflow checks in makeRoom.
+
+See https://github.com/AOMediaCodec/libavif/pull/2768.
+---
+ src/stream.c                  | 16 +++++++++-------
+ tests/gtest/avifstreamtest.cc | 13 +++++++++++++
+ 2 files changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/src/stream.c b/src/stream.c
+index a2ae4f620a56..60e6aa384cbf 100644
+--- a/src/stream.c
++++ b/src/stream.c
+@@ -334,14 +334,16 @@ avifBool avifROStreamReadAndEnforceVersion(avifROStream * stream, uint8_t enforc
+ #define AVIF_STREAM_BUFFER_INCREMENT (1024 * 1024)
+ static avifResult makeRoom(avifRWStream * stream, size_t size)
+ {
+-    if (size > SIZE_MAX - stream->offset) {
+-        return AVIF_RESULT_OUT_OF_MEMORY;
+-    }
+-    size_t neededSize = stream->offset + size;
+-    size_t newSize = stream->raw->size;
+-    while (newSize < neededSize) {
+-        newSize += AVIF_STREAM_BUFFER_INCREMENT;
++    AVIF_CHECKERR(size <= SIZE_MAX - stream->offset, AVIF_RESULT_OUT_OF_MEMORY);
++    size_t newSize = stream->offset + size;
++    if (newSize <= stream->raw->size) {
++        return AVIF_RESULT_OK;
+     }
++    // Make newSize a multiple of AVIF_STREAM_BUFFER_INCREMENT.
++    size_t rem = newSize % AVIF_STREAM_BUFFER_INCREMENT;
++    size_t padding = (rem == 0) ? 0 : AVIF_STREAM_BUFFER_INCREMENT - rem;
++    AVIF_CHECKERR(newSize <= SIZE_MAX - padding, AVIF_RESULT_OUT_OF_MEMORY);
++    newSize += padding;
+     return avifRWDataRealloc(stream->raw, newSize);
+ }
+ 
+diff --git a/tests/gtest/avifstreamtest.cc b/tests/gtest/avifstreamtest.cc
+index 1ba4e9f25e59..199b8bef12c5 100644
+--- a/tests/gtest/avifstreamtest.cc
++++ b/tests/gtest/avifstreamtest.cc
+@@ -202,6 +202,19 @@ TEST(StreamTest, WriteBitsLimit) {
+             AVIF_RESULT_INVALID_ARGUMENT);
+ }
+ 
++// Test the overflow checks in the makeRoom() function in src/stream.c.
++TEST(StreamTest, OverflowChecksInMakeRoom) {
++  testutil::AvifRwData rw_data;
++  avifRWStream rw_stream;
++  avifRWStreamStart(&rw_stream, &rw_data);
++  const char ten_bytes[10] = {0};
++  EXPECT_EQ(avifRWStreamWrite(&rw_stream, ten_bytes, 10), AVIF_RESULT_OK);
++  EXPECT_EQ(avifRWStreamWrite(&rw_stream, ten_bytes, SIZE_MAX - 9),
++            AVIF_RESULT_OUT_OF_MEMORY);
++  EXPECT_EQ(avifRWStreamWrite(&rw_stream, ten_bytes, SIZE_MAX - 10),
++            AVIF_RESULT_OUT_OF_MEMORY);
++}
++
+ //------------------------------------------------------------------------------
+ 
+ }  // namespace
+-- 
+2.49.0
+
