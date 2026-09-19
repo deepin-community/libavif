@@ -18,7 +18,7 @@ include /usr/share/dpkg/architecture.mk
 # sync with debian/control
 LIBGAV1_FLAG := -DAVIF_CODEC_LIBGAV1=OFF
 
-ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armel armhf i386 mips64el mipsel ppc64el loong64 riscv64 x32))
+ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armhf i386 mips64el mipsel ppc64el loong64 riscv64 x32))
   LIBGAV1_FLAG := -DAVIF_CODEC_LIBGAV1=SYSTEM
 endif
 
@@ -27,10 +27,17 @@ endif
 # sync with debian/control
 RAV1E_FLAG := -DAVIF_CODEC_RAV1E=OFF
 
-ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x powerpc ppc64 riscv64))
+ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armhf i386 mips64el mipsel ppc64el s390x powerpc ppc64 riscv64))
   RAV1E_FLAG := -DAVIF_CODEC_RAV1E=SYSTEM
 endif
 
+
+# flag for tests
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+  TEST_FLAG := -DAVIF_BUILD_TESTS=ON -DAVIF_GTEST=SYSTEM
+else
+  TEST_FLAG := -DAVIF_BUILD_TESTS=OFF
+endif
 
 # flag for building doc (man page)
 ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
@@ -40,7 +47,7 @@ else
 endif
 
 # disable doc build on architecture with broken pandoc, see also d/control
-ifneq (,$(filter $(DEB_HOST_ARCH), kfreebsd-amd64 kfreebsd-i386 m68k powerpc sh4 x32 hppa hurd-i386 loong64 sparc64))
+ifneq (,$(filter $(DEB_HOST_ARCH), m68k powerpc sh4 x32 hppa hurd-i386 loong64 sparc64))
   MAN_PAGES_FLAG := -DAVIF_BUILD_MAN_PAGES=OFF
 endif
 
@@ -68,6 +75,7 @@ override_dh_auto_configure:
 	    -DAVIF_BUILD_GDK_PIXBUF=ON \
 	    -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
 	    $(MAN_PAGES_FLAG) \
+	    $(TEST_FLAG) \
 	    $(NULL)
 
 # Manual man page installation for nodoc profile/option
@@ -88,3 +96,8 @@ else
 	install -m644 debian/avifenc.1 debian/libavif-bin/usr/share/man/man1/
 endif
 endif
+
+# To update to the new  upstream release
+# ######################################
+# uscan --verbose --force-download
+# gbp import-orig --pristine-tar --uscan --component=libargparse

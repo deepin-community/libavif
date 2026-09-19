@@ -52,9 +52,10 @@ TEST(StreamTest, Roundtrip) {
   const uint16_t rw_someu16 = 0xAABB;
   EXPECT_EQ(avifRWStreamWriteU16(&rw_stream, rw_someu16), AVIF_RESULT_OK);
 
-  avifRWStreamFinishBox(&rw_stream, rw_full_box_marker);
+  ASSERT_EQ(avifRWStreamFinishBox(&rw_stream, rw_full_box_marker),
+            AVIF_RESULT_OK);
 
-  avifRWStreamFinishBox(&rw_stream, rw_box_marker);
+  ASSERT_EQ(avifRWStreamFinishBox(&rw_stream, rw_box_marker), AVIF_RESULT_OK);
 
   const uint32_t rw_someu32 = 0xAABBCCDD;
   EXPECT_EQ(avifRWStreamWriteU32(&rw_stream, rw_someu32), AVIF_RESULT_OK);
@@ -200,6 +201,19 @@ TEST(StreamTest, WriteBitsLimit) {
   EXPECT_EQ(avifRWStreamWriteBits(&rw_stream, 7, 3), AVIF_RESULT_OK);
   EXPECT_EQ(avifRWStreamWriteBits(&rw_stream, 8, 3),
             AVIF_RESULT_INVALID_ARGUMENT);
+}
+
+// Test the overflow checks in the makeRoom() function in src/stream.c.
+TEST(StreamTest, OverflowChecksInMakeRoom) {
+  testutil::AvifRwData rw_data;
+  avifRWStream rw_stream;
+  avifRWStreamStart(&rw_stream, &rw_data);
+  const char ten_bytes[10] = {0};
+  EXPECT_EQ(avifRWStreamWrite(&rw_stream, ten_bytes, 10), AVIF_RESULT_OK);
+  EXPECT_EQ(avifRWStreamWrite(&rw_stream, ten_bytes, SIZE_MAX - 9),
+            AVIF_RESULT_OUT_OF_MEMORY);
+  EXPECT_EQ(avifRWStreamWrite(&rw_stream, ten_bytes, SIZE_MAX - 10),
+            AVIF_RESULT_OUT_OF_MEMORY);
 }
 
 //------------------------------------------------------------------------------

@@ -18,11 +18,12 @@ class TonemapCommand : public ProgramCommand {
   argparse::ArgValue<std::string> arg_input_filename_;
   argparse::ArgValue<std::string> arg_output_filename_;
   argparse::ArgValue<float> arg_headroom_;
-  argparse::ArgValue<std::string> arg_clli_str_;
+  argparse::ArgValue<avifContentLightLevelInformationBox> arg_clli_;
   argparse::ArgValue<CicpValues> arg_input_cicp_;
   argparse::ArgValue<CicpValues> arg_output_cicp_;
   ImageReadArgs arg_image_read_;
   BasicImageEncodeArgs arg_image_encode_;
+  JobsArgs arg_jobs_;
 };
 
 }  // namespace avif

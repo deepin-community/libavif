@@ -1,0 +1,3 @@
+Tests: encode-decode
+Depends: libavif-bin
+Restrictions: allow-stderr

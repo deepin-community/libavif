@@ -34,26 +34,31 @@ class ProgressiveTest : public testing::Test {
   }
 
   void TestDecode(uint8_t* data, size_t size, uint32_t expect_width,
-                  uint32_t expect_height) {
+                  uint32_t expect_height, bool expect_alpha = false) {
     ASSERT_EQ(avifDecoderSetIOMemory(decoder_.get(), data, size),
               AVIF_RESULT_OK);
     ASSERT_EQ(avifDecoderParse(decoder_.get()), AVIF_RESULT_OK);
     ASSERT_EQ(decoder_->progressiveState, AVIF_PROGRESSIVE_STATE_ACTIVE);
     ASSERT_EQ(static_cast<uint32_t>(decoder_->imageCount),
               encoder_->extraLayerCount + 1);
+    EXPECT_EQ(decoder_->alphaPresent, expect_alpha);
 
     for (uint32_t layer = 0; layer < encoder_->extraLayerCount + 1; ++layer) {
       ASSERT_EQ(avifDecoderNextImage(decoder_.get()), AVIF_RESULT_OK);
       // libavif scales frame automatically.
       ASSERT_EQ(decoder_->image->width, expect_width);
       ASSERT_EQ(decoder_->image->height, expect_height);
+      if (expect_alpha) {
+        ASSERT_NE(decoder_->image->alphaPlane, nullptr);
+      }
       // TODO(wtc): Check avifDecoderNthImageMaxExtent().
     }
   }
 
-  void TestDecode(uint32_t expect_width, uint32_t expect_height) {
+  void TestDecode(uint32_t expect_width, uint32_t expect_height,
+                  bool expect_alpha = false) {
     TestDecode(encoded_avif_.data, encoded_avif_.size, expect_width,
-               expect_height);
+               expect_height, expect_alpha);
 
     // TODO(wtc): Check decoder_->image and image_ are similar, and better
     // quality layer is more similar.
@@ -71,15 +76,44 @@ class ProgressiveTest : public testing::Test {
 
 TEST_F(ProgressiveTest, QualityChange) {
   encoder_->extraLayerCount = 1;
-  encoder_->minQuantizer = 50;
-  encoder_->maxQuantizer = 50;
+  encoder_->quality = 21;
 
   ASSERT_EQ(avifEncoderAddImage(encoder_.get(), image_.get(), 1,
                                 AVIF_ADD_IMAGE_FLAG_NONE),
             AVIF_RESULT_OK);
 
-  encoder_->minQuantizer = 0;
-  encoder_->maxQuantizer = 0;
+  encoder_->quality = 100;
+  ASSERT_EQ(avifEncoderAddImage(encoder_.get(), image_.get(), 1,
+                                AVIF_ADD_IMAGE_FLAG_NONE),
+            AVIF_RESULT_OK);
+
+  ASSERT_EQ(avifEncoderFinish(encoder_.get(), &encoded_avif_), AVIF_RESULT_OK);
+
+  TestDecode(kImageSize, kImageSize);
+}
+
+// NOTE: This test requires libaom v3.12.0 or later, as this was the first
+// version where tune IQ was available
+TEST_F(ProgressiveTest, TuneIq) {
+  encoder_->extraLayerCount = 1;
+  // Tune IQ requires all-intra mode, which libavif determines when the first
+  // layer is encoded at a very low quality (e.g. quality 10)
+  encoder_->quality = 10;
+  encoder_->codecChoice = AVIF_CODEC_CHOICE_AOM;
+
+  ASSERT_EQ(avifEncoderSetCodecSpecificOption(encoder_.get(), "tune", "iq"),
+            AVIF_RESULT_OK);
+  avifResult result = avifEncoderAddImage(encoder_.get(), image_.get(), 1,
+                                          AVIF_ADD_IMAGE_FLAG_NONE);
+
+  if (result == AVIF_RESULT_INVALID_CODEC_SPECIFIC_OPTION) {
+    // The aom version that libavif was built with likely does not support
+    // AOM_TUNE_IQ.
+    return;
+  }
+
+  ASSERT_EQ(result, AVIF_RESULT_OK);
+  encoder_->quality = 50;
   ASSERT_EQ(avifEncoderAddImage(encoder_.get(), image_.get(), 1,
                                 AVIF_ADD_IMAGE_FLAG_NONE),
             AVIF_RESULT_OK);
@@ -101,8 +135,7 @@ TEST_F(ProgressiveTest, DimensionChange) {
   }
 
   encoder_->extraLayerCount = 1;
-  encoder_->minQuantizer = 0;
-  encoder_->maxQuantizer = 0;
+  encoder_->quality = 100;
   encoder_->scalingMode = {{1, 2}, {1, 2}};
 
   ASSERT_EQ(avifEncoderAddImage(encoder_.get(), image_.get(), 1,
@@ -119,18 +152,51 @@ TEST_F(ProgressiveTest, DimensionChange) {
   TestDecode(kImageSize, kImageSize);
 }
 
+TEST_F(ProgressiveTest, DimensionChangeWithAlpha) {
+  if (avifLibYUVVersion() == 0) {
+    GTEST_SKIP() << "libyuv not available, skip test.";
+  }
+
+  const auto image =
+      testutil::CreateImage(kImageSize, kImageSize, 8, AVIF_PIXEL_FORMAT_YUV444,
+                            AVIF_PLANES_ALL, AVIF_RANGE_FULL);
+  ASSERT_NE(image, nullptr);
+  testutil::FillImageGradient(image.get());
+
+  encoder_->extraLayerCount = 2;
+  encoder_->quality = 100;
+  encoder_->scalingMode = {{1, 2}, {1, 2}};
+
+  ASSERT_EQ(avifEncoderAddImage(encoder_.get(), image.get(), 1,
+                                AVIF_ADD_IMAGE_FLAG_NONE),
+            AVIF_RESULT_OK);
+
+  // Encode the scaled image twice to verify frame buffer reallocation
+  // behavior during decode
+  ASSERT_EQ(avifEncoderAddImage(encoder_.get(), image.get(), 1,
+                                AVIF_ADD_IMAGE_FLAG_NONE),
+            AVIF_RESULT_OK);
+
+  encoder_->scalingMode = {{1, 1}, {1, 1}};
+  ASSERT_EQ(avifEncoderAddImage(encoder_.get(), image.get(), 1,
+                                AVIF_ADD_IMAGE_FLAG_NONE),
+            AVIF_RESULT_OK);
+
+  ASSERT_EQ(avifEncoderFinish(encoder_.get(), &encoded_avif_), AVIF_RESULT_OK);
+
+  TestDecode(kImageSize, kImageSize, /*expect_alpha=*/true);
+}
+
 TEST_F(ProgressiveTest, LayeredGrid) {
   encoder_->extraLayerCount = 1;
-  encoder_->minQuantizer = 50;
-  encoder_->maxQuantizer = 50;
+  encoder_->quality = 21;
 
   avifImage* image_grid[2] = {image_.get(), image_.get()};
   ASSERT_EQ(avifEncoderAddImageGrid(encoder_.get(), 2, 1, image_grid,
                                     AVIF_ADD_IMAGE_FLAG_NONE),
             AVIF_RESULT_OK);
 
-  encoder_->minQuantizer = 0;
-  encoder_->maxQuantizer = 0;
+  encoder_->quality = 100;
   ASSERT_EQ(avifEncoderAddImageGrid(encoder_.get(), 2, 1, image_grid,
                                     AVIF_ADD_IMAGE_FLAG_NONE),
             AVIF_RESULT_OK);

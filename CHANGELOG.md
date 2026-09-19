@@ -8,11 +8,169 @@ The changes are relative to the previous release, unless the baseline is specifi
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-05-26
+
+### Added since 1.4.1
+
+* Add --jobs flag to avifgainmaputil to use multiple worker threads when
+  reading/writing AVIF files.
+
+### Changed since 1.4.1
+
+* Require C11 for compilation. Public headers will remain C99.
+* Add --jobs flag to avifgainmaputil and enable auto tiling.
+* Use AOM_TUNE_IQ for layered image inter-frame encoding.
+* Update aom.cmd/LocalAom.cmake: v3.14.1
+* Update LocalAvm.cmake: research-v15.0.0
+* Update libjpeg.cmd/LocalJpeg.cmake: 3.1.4.1
+* Update libxml2.cmd/LocalLibXml2.cmake: v2.15.3
+* Update libyuv.cmd/LocalLibyuv.cmake: 644251f25 (1924)
+* Update svt.cmd/svt.sh/LocalSvt.cmake: v4.1.0
+* Update zlibpng.cmd/LocalZlibpng.cmake: libpng 1.6.58
+* Fix memory leak of altICC if avifDecoderFindGainMapItem returns early.
+* Avoid MT loop restoration crash in libaom < 3.13.3
+* Fix decoding layered image with multiple scaled alpha layers
+* Fix NaN bypass of AVIF_CLAMP in gain map tone mapping (use fminf/fmaxf)
+* Fix null pointer dereference in avifImageCopy() when avifImageCreateEmpty()
+  fails to allocate the destination gain map image.
+* avifenc: reject mismatched --depth for Y4M input
+* Use libaom AOMD_SET_FRAME_SIZE_LIMIT if available
+* Fix bug in transfer function 11 (used for gain map creation/tone mapping)
+
+## [1.4.1] - 2026-03-20
+
+### Changed since 1.4.0
+
+* Fix build with CMake 3.22
+* Update aom.cmd/LocalAom.cmake: v3.13.2
+* Update libxml2.cmd/LocalLibXml2.cmake: v2.15.2
+* Update libyuv.cmd/LocalLibyuv.cmake: 6067afde5 (1922)
+* Support long path names in Windows
+* Fix cicp management and memory leaks in avifgainmaputil
+  https://github.com/AOMediaCodec/libavif/issues/3102.
+
+### Removed since 1.4.0
+
+* Remove experimental status for the following options of avifenc: --progressive,
+  --layered and --scaling-mode, and the extraLayerCount option of avifEncoder.
+
+## [1.4.0] - 2026-03-04
+
+### Added since 1.3.0
+
+* Allow avifenc to read png or jpeg files through stdin using --stdin-format.
+* Support some Sample Transform schemes as defined in the version 1.2 of the
+  AVIF specification.
+* Add an optional argument to the --depth flag of avifenc used to enable a bit
+  depth extension scheme in the encoded file.
+* Add support for converting jpeg files with Apple style gain maps.
+* Add support for PNG cICP chunk when decoding PNG files. If a PNG file contains
+  a cICP chunk and other color information chunks, such as iCCP (ICC profile),
+  the other chunks are ignored as per the PNG Specification Third Edition
+  Section 4.3.
+* Support reading Sample-Transform-based 16-bit AVIF files when
+  avifDecoder::imageContentToDecode & AVIF_IMAGE_CONTENT_SAMPLE_TRANSFORMS is
+  not zero.
+* Support Sample Transform derived image items with grid input image items.
+* Add --sato flag to avifdec to enable Sample Transforms support at decoding.
+* Add --grid option to avifgainmaputil.
+* Apply clean aperture crop, rotation and mirror when decoding to PNG or JPEG.
+  Remove orientation information from Exif if present.
+* Add avif::RGBImageCleanup to the C++ API.
+
+### Changed since 1.3.0
+
+* Set avifDecoder::image->depth to the same value after avifDecoderParse() as
+  after avifDecoderNextImage() when the file to decode contains a 'sato' derived
+  image item.
+* avifdec only enables Sample Transform decoding when --depth is set to 16.
+* Update dav1d.cmd/dav1d_android.sh/LocalDav1d.cmake: 1.5.3
+* Update googletest.cmd/LocalGTest.cmake: v1.17.0
+* Update libgav1.cmd: v0.20.0
+* Update libjpeg.cmd/LocalJpeg.cmake: 3.1.3
+* Update libyuv.cmd/LocalLibyuv.cmake: deeb764bb (1922)
+* Update libsharpyuv.cmd/LocalLibsharpyuv.cmake: v1.6.0
+* Update libxml2.cmd/LocalLibXml2.cmake: v2.15.1
+* Update aom.cmd/LocalAom.cmake: v3.13.1
+* Update LocalAvm.cmake: research-v13.0.0
+* Update rav1e.cmd/LocalRav1e.cmake: cargo-c v0.10.20, corrosion v0.6.1,
+  rav1e v0.8.1
+* Update svt.cmd/svt.sh/LocalSvt.cmake: v4.0.1
+* Update zlibpng.cmd/LocalZlibpng.cmake: libpng 1.6.55, zlib 1.3.2
+* Fix grayscale conversion when changing the bit depth.
+* Bump cmake_minimum_required from 3.13 to 3.22
+* Associate transformative properties with alpha auxiliary image items.
+* Always forward the CICP color primaries, transfer characteristics,
+  and matrix coefficients to the AV1 encoder, which writes them in the Sequence
+  Header OBU, for compatibility with libraries that wrongly ignore the colr box.
+* Use a "quality to quantizer (QP)" mapping formula designed for AOM_TUNE_IQ.
+* Set tuning before applying the user-provided specific aom codec options.
+* Use AOM_TUNE_PSNR by default when encoding alpha with libaom because
+  AOM_TUNE_SSIM causes ringing for alpha.
+* Use AOM_TUNE_IQ by default when encoding still non-RGB color samples with
+  libaom v3.13.0 or later.
+* Converting an image containing a gain map using avifenc with the --grid flag
+  now also splits the gain map into a grid.
+* In avifenc, set Exif orientation to 1 (no transformation) when converting
+  JPEGs to AVIF.
+* Use all-intra encoding for a layered image if the total number of layers is 2
+  and the quality of the first layer is very low (q <= 10).
+
+### Removed since 1.3.0
+
+* Remove ext/avm.cmd.
+* Remove the AVIF_ENABLE_EXPERIMENTAL_SAMPLE_TRANSFORM CMake flag.
+* Remove support for libaom versions up to 2.0.0 inclusive.
+* Un-export the private function avifImagePushProperty().
+
+## [1.3.0] - 2025-05-09
+
+### Added since 1.2.1
+
+* Add grayscale conversions in avifImageRGBToYUV and avifImageYUVToRGB.
+* Add avifRGBFormatIsGray to check whether an avifRGBFormat is gray.
+
+### Changed since 1.2.1
+
+* Reject the conversion in avifenc from non-monochrome/monochrome to
+  monochrome/non-monochrome when an ICC profile is present and not explicitly
+  discarded.
+* Forbid encoding with AVIF_MATRIX_COEFFICIENTS_IDENTITY and
+  AVIF_PIXEL_FORMAT_YUV400 to be AV1 spec compatible.
+* Do not go through RGB when reading/writing a grayscale PNG/JPG images in
+  avifenc/avifdec
+* Ignore tmap items not present in `grpl` box
+* Assume any id is present in only one altr group as per spec.
+* avifpng.c: support ImageMagick app1 exif text data
+* avifjpeg.c: check for uint32_t overflow before add
+* Update googletest.cmd/LocalGTest.cmake: v1.16.0
+* Update libjpeg.cmd/LocalJpeg.cmake: 3.1.0
+* Update libsharpyuv: v1.5.0
+* Update libxml2.cmd/LocalLibXml2.cmake: v2.14.0
+* Update libyuv.cmd/LocalLibyuv.cmake: 4db2af62d (1909)
+* Update LocalRav1e.cmake: cargo-c v0.10.12
+* Update zlibpng.cmd: libpng 1.6.47
+* Fix wrong Exif orientation set in JPEG or PNG output by avifdec when the input
+  AVIF file has an ImageRotation property with angle set to 1 or 3, has no
+  ImageMirror property, and carries an Exif chunk. Note that Exif orientation is
+  usually ignored in PNG files, so this mainly impacts JPEG files.
+* Encoder: fix ispe property for tmap with grid.
+* Decoder: check the ispe property of tmap items.
+* Allow lowercase GUIDs in XMP when reading JPEG files.
+* Update aom.cmd/LocalAom.cmake: v3.12.1
+* Change avifenc to start in automatic tiling mode.
+* Always forward Unspecified (2) CICP color primaries, transfer characteristics,
+  and matrix coefficients to the AV1 encoder. Rely on the 'colr' box instead.
+* Declare *RowBytes as size_t in avifImageRGBToYUV()
+* Check ftell returned value in avifjpeg.c
+* Add integer overflow checks to makeRoom.
+* LocalJpeg.cmake: Support multi-config generators.
+
 ## [1.2.1] - 2025-03-17
 
 ### Added since 1.2.0
 
-* Add support for outputting all frames of an image sequence in `avifdec`. 
+* Add support for outputting all frames of an image sequence in `avifdec`.
   `avifdec --index all sequence.avif out.png` creates files named
   `out-xxxxxxxxxx.png` where xxxxxxxxxx are the zero-padded frame indices.
 
@@ -1227,7 +1385,11 @@ code.
 - Constants `AVIF_VERSION`, `AVIF_VERSION_MAJOR`, `AVIF_VERSION_MINOR`, `AVIF_VERSION_PATCH`
 - `avifVersion()` function
 
-[Unreleased]: https://github.com/AOMediaCodec/libavif/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/AOMediaCodec/libavif/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/AOMediaCodec/libavif/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/AOMediaCodec/libavif/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/AOMediaCodec/libavif/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/AOMediaCodec/libavif/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/AOMediaCodec/libavif/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/AOMediaCodec/libavif/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/AOMediaCodec/libavif/compare/v1.1.0...v1.1.1

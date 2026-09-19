@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+WORKDIR="${AUTOPKGTEST_TMP}"
+
+echo "Encoding PNG to AVIF"
+avifenc tests/data/draw_points.png "${WORKDIR}/output.avif"
+
+echo "Decoding AVIF back to PNG"
+avifdec "${WORKDIR}/output.avif" "${WORKDIR}/decoded.png"
+
+echo "AVIF encode/decode round-trip: PASSED"

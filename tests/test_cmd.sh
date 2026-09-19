@@ -16,7 +16,7 @@
 #
 # tests for command lines
 
-source $(dirname "$0")/cmd_test_common.sh
+source $(dirname "$0")/cmd_test_common.sh || exit
 
 # Basic calls.
 "${AVIFENC}" --version
@@ -24,6 +24,7 @@ source $(dirname "$0")/cmd_test_common.sh
 
 # Input file paths.
 INPUT_Y4M="${TESTDATA_DIR}/kodim03_yuv420_8bpc.y4m"
+INPUT_PNG="${TESTDATA_DIR}/circle-trns-after-plte.png"
 INPUT_UTF8_Y4M="🐾.y4m"
 # Output file names.
 ENCODED_FILE="avif_test_cmd_encoded.avif"
@@ -68,6 +69,11 @@ pushd ${TMP_DIR}
   if [[ ${RET} -ne 1 ]]; then
     exit 1
   fi
+  "${AVIFENC}" -s 8 --depth 8 "${INPUT_Y4M}" -o "${ENCODED_FILE}"
+  "${AVIFENC}" -s 8 --depth 8,8 "${INPUT_Y4M}" -o "${ENCODED_FILE}" 2> "${OUT_MSG}" && exit 1
+  grep "ERROR: --depth 8,8 is not supported for Y4M input" "${OUT_MSG}"
+  "${AVIFENC}" -s 8 --depth 10 "${INPUT_Y4M}" -o "${ENCODED_FILE}" 2> "${OUT_MSG}" && exit 1
+  grep "ERROR: --depth 10 does not match Y4M bit depth 8" "${OUT_MSG}"
 
   # Argument parsing test with filenames starting with a dash.
   echo "Testing arguments"
@@ -120,6 +126,23 @@ pushd ${TMP_DIR}
   "${AVIFENC}" -s 10 -q 65 --min 15 --max 25 "${INPUT_Y4M}" "${ENCODED_FILE}" > "${OUT_MSG}"
   grep " color quality \[65 " "${OUT_MSG}"
   grep " alpha quality \[65 " "${OUT_MSG}"
+
+  # Test tiling options.
+  echo "Testing tiling options"
+  "${AVIFENC}" -s 10 "${INPUT_Y4M}" "${ENCODED_FILE}" > "${OUT_MSG}"
+  grep " automatic tiling," "${OUT_MSG}"
+  "${AVIFENC}" -s 10 --tilerowslog2 1 "${INPUT_Y4M}" "${ENCODED_FILE}" > "${OUT_MSG}"
+  grep " tileRowsLog2 \[1\], tileColsLog2 \[0\]," "${OUT_MSG}"
+  "${AVIFENC}" -s 10 --tilecolslog2 2 "${INPUT_Y4M}" "${ENCODED_FILE}" > "${OUT_MSG}"
+  grep " tileRowsLog2 \[0\], tileColsLog2 \[2\]," "${OUT_MSG}"
+  "${AVIFENC}" -s 10 --tilerowslog2 1 --tilecolslog2 2 "${INPUT_Y4M}" "${ENCODED_FILE}" > "${OUT_MSG}"
+  grep " tileRowsLog2 \[1\], tileColsLog2 \[2\]," "${OUT_MSG}"
+  "${AVIFENC}" -s 10 --autotiling "${INPUT_Y4M}" "${ENCODED_FILE}" > "${OUT_MSG}"
+  grep " automatic tiling," "${OUT_MSG}"
+  # --autotiling and --tilerowslog2 R --tilecolslog2 C are mutually exclusive.
+  "${AVIFENC}" --autotiling --tilerowslog2 1 "${INPUT_Y4M}" "${ENCODED_FILE}" && exit 1
+  "${AVIFENC}" --autotiling --tilecolslog2 2 "${INPUT_Y4M}" "${ENCODED_FILE}" && exit 1
+  "${AVIFENC}" --autotiling --tilerowslog2 1 --tilecolslog2 2 "${INPUT_Y4M}" "${ENCODED_FILE}" && exit 1
 popd
 
 exit 0

@@ -334,11 +334,16 @@ avifBool avifROStreamReadAndEnforceVersion(avifROStream * stream, uint8_t enforc
 #define AVIF_STREAM_BUFFER_INCREMENT (1024 * 1024)
 static avifResult makeRoom(avifRWStream * stream, size_t size)
 {
-    size_t neededSize = stream->offset + size;
-    size_t newSize = stream->raw->size;
-    while (newSize < neededSize) {
-        newSize += AVIF_STREAM_BUFFER_INCREMENT;
+    AVIF_CHECKERR(size <= SIZE_MAX - stream->offset, AVIF_RESULT_OUT_OF_MEMORY);
+    size_t newSize = stream->offset + size;
+    if (newSize <= stream->raw->size) {
+        return AVIF_RESULT_OK;
     }
+    // Make newSize a multiple of AVIF_STREAM_BUFFER_INCREMENT.
+    size_t rem = newSize % AVIF_STREAM_BUFFER_INCREMENT;
+    size_t padding = (rem == 0) ? 0 : AVIF_STREAM_BUFFER_INCREMENT - rem;
+    AVIF_CHECKERR(newSize <= SIZE_MAX - padding, AVIF_RESULT_OUT_OF_MEMORY);
+    newSize += padding;
     return avifRWDataRealloc(stream->raw, newSize);
 }
 
@@ -421,11 +426,19 @@ avifResult avifRWStreamWriteBox(avifRWStream * stream, const char * type, size_t
     return avifRWStreamWriteFullBox(stream, type, contentSize, -1, 0, marker);
 }
 
-void avifRWStreamFinishBox(avifRWStream * stream, avifBoxMarker marker)
+avifResult avifRWStreamFinishBox(avifRWStream * stream, avifBoxMarker marker)
 {
     assert(stream->numUsedBitsInPartialByte == 0); // Byte alignment is required.
-    uint32_t noSize = avifHTONL((uint32_t)(stream->offset - marker));
+    size_t boxSize = stream->offset - marker;
+    // Since marker comes from a previous avifRWStreamWriteBox() or
+    // avifRWStreamWriteFullBox() call, boxSize must be >= the size of the size
+    // and type fields. This implies that boxSize cannot be equal to the two
+    // special values 0 and 1.
+    AVIF_ASSERT_OR_RETURN(boxSize >= sizeof(uint32_t) + 4);
+    AVIF_CHECKERR(boxSize <= UINT32_MAX, AVIF_RESULT_INVALID_ARGUMENT);
+    uint32_t noSize = avifHTONL((uint32_t)boxSize);
     memcpy(stream->raw->data + marker, &noSize, sizeof(uint32_t));
+    return AVIF_RESULT_OK;
 }
 
 avifResult avifRWStreamWriteU8(avifRWStream * stream, uint8_t v)

@@ -67,6 +67,8 @@ ImagePtr CreateTestImageWithGainMap(bool base_rendition_is_hdr) {
   if (image == nullptr) {
     return nullptr;
   }
+  image->colorPrimaries = AVIF_COLOR_PRIMARIES_BT2020;
+  image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT601;
   image->transferCharacteristics =
       (avifTransferCharacteristics)(base_rendition_is_hdr
                                         ? AVIF_TRANSFER_CHARACTERISTICS_PQ
@@ -78,6 +80,9 @@ ImagePtr CreateTestImageWithGainMap(bool base_rendition_is_hdr) {
   if (gain_map == nullptr) {
     return nullptr;
   }
+  gain_map->colorPrimaries = AVIF_COLOR_PRIMARIES_UNSPECIFIED;
+  gain_map->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT709;
+  gain_map->transferCharacteristics = AVIF_TRANSFER_CHARACTERISTICS_UNSPECIFIED;
   testutil::FillImageGradient(gain_map.get());
   image->gainMap = avifGainMapCreate();
   if (image->gainMap == nullptr) {
@@ -152,6 +157,13 @@ TEST(GainMapTest, EncodeDecodeBaseImageSdr) {
   EXPECT_EQ(decoded->gainMap->image->width, image->gainMap->image->width);
   EXPECT_EQ(decoded->gainMap->image->height, image->gainMap->image->height);
   EXPECT_EQ(decoded->gainMap->image->depth, image->gainMap->image->depth);
+  EXPECT_EQ(decoded->gainMap->image->colorPrimaries,
+            image->gainMap->image->colorPrimaries);
+  EXPECT_EQ(decoded->gainMap->image->transferCharacteristics,
+            image->gainMap->image->transferCharacteristics);
+  EXPECT_EQ(decoded->gainMap->image->matrixCoefficients,
+            image->gainMap->image->matrixCoefficients);
+  EXPECT_EQ(decoded->gainMap->image->yuvRange, image->gainMap->image->yuvRange);
   CheckGainMapMetadataMatches(*decoded->gainMap, *image->gainMap);
 
   // Decode the image.
@@ -813,9 +825,31 @@ TEST(GainMapTest, DecodeInvalidFtyp) {
   ASSERT_NE(decoder, nullptr);
   decoder->imageContentToDecode |= AVIF_IMAGE_CONTENT_GAIN_MAP;
 
-  ASSERT_EQ(avifDecoderReadFile(decoder.get(), decoded.get(), path.c_str()),
-            AVIF_RESULT_OK);
+  const avifResult result =
+      avifDecoderReadFile(decoder.get(), decoded.get(), path.c_str());
+  ASSERT_EQ(result, AVIF_RESULT_OK)
+      << avifResultToString(result) << ": " << decoder->diag.error;
   // The gain map is ignored because the 'tmap' brand is not present.
+  ASSERT_EQ(decoded->gainMap, nullptr);
+}
+
+TEST(GainMapTest, DecodeWrongAltr) {
+  const std::string path =
+      std::string(data_path) + "seine_hdr_gainmap_wrongaltr.avif";
+  ImagePtr decoded(avifImageCreateEmpty());
+  ASSERT_NE(decoded, nullptr);
+  DecoderPtr decoder(avifDecoderCreate());
+  ASSERT_NE(decoder, nullptr);
+  decoder->imageContentToDecode |= AVIF_IMAGE_CONTENT_GAIN_MAP;
+
+  const avifResult result =
+      avifDecoderReadFile(decoder.get(), decoded.get(), path.c_str());
+  ASSERT_EQ(result, AVIF_RESULT_OK)
+      << avifResultToString(result) << ": " << decoder->diag.error;
+  // The gain map is ignored because the 'tmap' item is not marked as a
+  // preferred alternative to the primary image item using an 'altr' group.
+  // In this example file, the 'altr' group is present, but the tmap item comes
+  // after the main item so it's not preferred.
   ASSERT_EQ(decoded->gainMap, nullptr);
 }
 
@@ -1063,7 +1097,7 @@ INSTANTIATE_TEST_SUITE_P(
             /*out_depth=*/8,
             /*out_transfer=*/AVIF_TRANSFER_CHARACTERISTICS_SRGB,
             /*out_rgb_format=*/AVIF_RGB_FORMAT_RGB,
-            /*reference=*/"seine_sdr_gainmap_srgb.avif", /*min_psnr=*/60.0f,
+            /*reference=*/"seine_sdr_gainmap_srgb.avif", /*min_psnr=*/53.5f,
             /*max_psnr=*/80.0f),
 
         // Same as above, outputting to RGBA.
@@ -1187,7 +1221,7 @@ TEST(ToneMapTest, ToneMapImageSameHeadroom) {
         /*out_depth=*/image->depth,
         /*out_transfer_characteristics=*/image->transferCharacteristics,
         AVIF_RGB_FORMAT_RGB, /*reference_image=*/image.get(),
-        /*min_psnr=*/60, /*max_psnr=*/100);
+        /*min_psnr=*/53.5, /*max_psnr=*/100);
   }
 }
 
@@ -1376,7 +1410,7 @@ INSTANTIATE_TEST_SUITE_P(
                         /*image2_name=*/"seine_hdr_gainmap_srgb.avif",
                         /*downscaling=*/1, /*gain_map_depth=*/10,
                         /*gain_map_format=*/AVIF_PIXEL_FORMAT_YUV444,
-                        /*min_psnr=*/55.0f, /*max_psnr=*/80.0f),
+                        /*min_psnr=*/53.25f, /*max_psnr=*/80.0f),
         // 8 bit gain map, expect a slightly lower PSNR.
         std::make_tuple(/*image1_name=*/"seine_sdr_gainmap_srgb.avif",
                         /*image2_name=*/"seine_hdr_gainmap_srgb.avif",
@@ -1425,7 +1459,7 @@ INSTANTIATE_TEST_SUITE_P(
                         /*image2_name=*/"colors_hdr_rec2020.avif",
                         /*downscaling=*/1, /*gain_map_depth=*/10,
                         /*gain_map_format=*/AVIF_PIXEL_FORMAT_YUV444,
-                        /*min_psnr=*/55.0f, /*max_psnr=*/100.0f),
+                        /*min_psnr=*/52.5f, /*max_psnr=*/100.0f),
         // The PSNR is very high because there are essentially the same image,
         // simply expresed in different colorspaces.
         std::make_tuple(/*image1_name=*/"colors_hdr_rec2020.avif",
@@ -1438,7 +1472,7 @@ INSTANTIATE_TEST_SUITE_P(
                         /*image2_name=*/"colors_wcg_hdr_rec2020.avif",
                         /*downscaling=*/1, /*gain_map_depth=*/10,
                         /*gain_map_format=*/AVIF_PIXEL_FORMAT_YUV444,
-                        /*min_psnr=*/55.0f, /*max_psnr=*/80.0f)));
+                        /*min_psnr=*/52.5f, /*max_psnr=*/80.0f)));
 
 TEST(GainMapTest, CreateGainMapConstantFactor) {
   // Used only to initialize rgb images.
@@ -1557,6 +1591,94 @@ TEST(FindMinMaxWithoutOutliers, Test) {
     const float bucketSize = 0.01f;  // Size of one bucket.
     EXPECT_NEAR(max, value_shift + 2.0f + bucketSize, kEpsilon);
   }
+}
+
+// Verify that applying a gain map with degenerate parameters that produce NaN
+// (0 * Inf from black pixels with baseOffset=0 and large gainMapMax) returns
+// AVIF_RESULT_INVALID_TONE_MAPPED_IMAGE instead of crashing or producing
+// garbage output.
+TEST(GainMapTest, ApplyGainMapNaN) {
+  // 2x2 black base image (sRGB, BT.709).
+  ImagePtr base(avifImageCreate(2, 2, 8, AVIF_PIXEL_FORMAT_YUV444));
+  ASSERT_NE(base, nullptr);
+  base->colorPrimaries = AVIF_COLOR_PRIMARIES_SRGB;
+  base->transferCharacteristics = AVIF_TRANSFER_CHARACTERISTICS_SRGB;
+  base->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT709;
+  base->yuvRange = AVIF_RANGE_FULL;
+  ASSERT_EQ(avifImageAllocatePlanes(base.get(), AVIF_PLANES_YUV),
+            AVIF_RESULT_OK)
+      << "Failed to allocate base planes";
+  // Y=0 (black), U=128/V=128 (neutral chroma).
+  memset(base->yuvPlanes[0], 0, (size_t)base->yuvRowBytes[0] * 2);
+  memset(base->yuvPlanes[1], 128, (size_t)base->yuvRowBytes[1] * 2);
+  memset(base->yuvPlanes[2], 128, (size_t)base->yuvRowBytes[2] * 2);
+
+  // 2x2 gain map image — all pixels at maximum (255 -> 1.0 normalized).
+  GainMapPtr gainMap(avifGainMapCreate());
+  ASSERT_NE(gainMap, nullptr);
+  gainMap->image = avifImageCreate(2, 2, 8, AVIF_PIXEL_FORMAT_YUV444);
+  ASSERT_NE(gainMap->image, nullptr) << "Failed to create gain map image";
+  gainMap->image->yuvRange = AVIF_RANGE_FULL;
+  gainMap->image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_IDENTITY;
+  ASSERT_EQ(avifImageAllocatePlanes(gainMap->image, AVIF_PLANES_YUV),
+            AVIF_RESULT_OK)
+      << "Failed to allocate gain map planes";
+  memset(gainMap->image->yuvPlanes[0], 255,
+         (size_t)gainMap->image->yuvRowBytes[0] * 2);
+  memset(gainMap->image->yuvPlanes[1], 255,
+         (size_t)gainMap->image->yuvRowBytes[1] * 2);
+  memset(gainMap->image->yuvPlanes[2], 255,
+         (size_t)gainMap->image->yuvRowBytes[2] * 2);
+
+  // Gain map metadata crafted to trigger NaN:
+  //   gainMapMin  = 0     -> lerp lower bound
+  //   gainMapMax  = 1000  -> lerp upper bound
+  //   gamma       = 1     -> no gamma distortion
+  //   baseOffset  = 0     -> (baseLinear + 0) = 0 for black pixels
+  //   altOffset   = 0
+  //
+  // The math: lerp(0, 1000, powf(1.0, 1.0)) = 1000
+  //           exp2f(1000 * weight) = +Inf
+  //           (0.0 + 0.0) * +Inf = NaN  (IEEE 754)
+  for (int c = 0; c < 3; ++c) {
+    gainMap->gainMapMin[c] = {0, 1};
+    gainMap->gainMapMax[c] = {1000, 1};
+    gainMap->gainMapGamma[c] = {1, 1};
+    gainMap->baseOffset[c] = {0, 1};
+    gainMap->alternateOffset[c] = {0, 1};
+  }
+  gainMap->baseHdrHeadroom = {0, 1};
+  gainMap->alternateHdrHeadroom = {6, 1};
+  gainMap->useBaseColorSpace = 1;
+  gainMap->altColorPrimaries = AVIF_COLOR_PRIMARIES_SRGB;
+  gainMap->altTransferCharacteristics = AVIF_TRANSFER_CHARACTERISTICS_SRGB;
+  gainMap->altMatrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT709;
+  gainMap->altYUVRange = AVIF_RANGE_FULL;
+  gainMap->altDepth = 8;
+  gainMap->altPlaneCount = 3;
+
+  // Output tone-mapped image.
+  avifRGBImage toneMap;
+  memset(&toneMap, 0, sizeof(toneMap));
+  toneMap.depth = 8;
+  toneMap.format = AVIF_RGB_FORMAT_RGBA;
+
+  avifContentLightLevelInformationBox clli;
+  memset(&clli, 0, sizeof(clli));
+  avifDiagnostics diag;
+  avifDiagnosticsClearError(&diag);
+
+  // Apply with full HDR headroom (weight = 1.0).
+  // Use LINEAR transfer so NaN propagates through to the clamp check.
+  // (sRGB's gamma function absorbs NaN to 1.0f, hiding the issue.)
+  avifResult result = avifImageApplyGainMap(
+      base.get(), gainMap.get(), 6.0f, AVIF_COLOR_PRIMARIES_SRGB,
+      AVIF_TRANSFER_CHARACTERISTICS_LINEAR, &toneMap, &clli, &diag);
+
+  EXPECT_EQ(result, AVIF_RESULT_INVALID_TONE_MAPPED_IMAGE)
+      << avifResultToString(result) << " (" << diag.error << ")";
+
+  avifRGBImageFreePixels(&toneMap);
 }
 
 }  // namespace

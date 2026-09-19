@@ -6,12 +6,12 @@ Source: https://github.com/AOMediaCodec/libavif
 Files: *
 Copyright:
  2019-2022 Joe Drago <joedrago@gmail.com>
- 2023-2025 Google LLC
+ 2023-2026 Google LLC
 License: BSD-2-Clause
 
 Files: debian/*
 Copyright: 2020 Boyuan Yang <byang@debian.org>
-License: CC0-1.0
+License: CC0-1.0 or BSD-2-Clause
 
 Files:
  third_party/libyuv/*
